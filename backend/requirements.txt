@@ -1,0 +1,17 @@
+fastapi==0.111.0
+uvicorn[standard]==0.29.0
+python-multipart==0.0.9
+pandas==2.2.2
+numpy==1.26.4
+scikit-learn==1.4.2
+networkx==3.3
+lightgbm==4.3.0
+scipy==1.13.0
+google-generativeai==0.5.4
+google-cloud-aiplatform==1.51.0
+shap==0.45.0
+jinja2==3.1.4
+weasyprint==62.3
+python-dotenv==1.0.1
+pydantic==2.7.1
+pydantic-settings==2.2.1
