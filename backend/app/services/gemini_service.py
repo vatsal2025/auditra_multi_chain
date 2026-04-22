@@ -13,7 +13,7 @@ from app.models.schemas import Chain
 def _get_model():
     import google.generativeai as genai
     genai.configure(api_key=settings.gemini_api_key)
-    return genai.GenerativeModel("gemini-1.5-pro")
+    return genai.GenerativeModel("gemini-2.5-flash")
 
 
 # ---------------------------------------------------------------------------
