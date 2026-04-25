@@ -9,3 +9,5 @@ node_modules/
 dist/
 *.egg-info/
 .DS_Store
+vertex_jobs.txt
+backend/.env

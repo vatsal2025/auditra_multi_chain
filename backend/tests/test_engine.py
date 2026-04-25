@@ -43,7 +43,7 @@ def test_column_type_detection(compas_df):
 
 def test_graph_builds(compas_df):
     col_types = detect_column_types(compas_df)
-    G, strengths = build_graph(compas_df, col_types, threshold=0.10)
+    G, strengths = build_graph(compas_df, col_types, threshold=0.10, protected_attributes=["race", "sex"])
     print(f"\nGraph: {G.number_of_nodes()} nodes, {G.number_of_edges()} edges")
     assert G.number_of_nodes() >= 5
     assert G.number_of_edges() > 0
@@ -51,7 +51,7 @@ def test_graph_builds(compas_df):
 
 def test_chains_found_to_race(compas_df):
     col_types = detect_column_types(compas_df)
-    G, strengths = build_graph(compas_df, col_types, threshold=0.10)
+    G, strengths = build_graph(compas_df, col_types, threshold=0.10, protected_attributes=["race"])
     chains = find_chains(G, strengths, ["race"], max_depth=4, col_types=col_types)
 
     print(f"\nChains to 'race': {len(chains)}")
@@ -64,7 +64,7 @@ def test_chains_found_to_race(compas_df):
 def test_chains_found_to_sex(compas_df):
     """Sex has weaker correlations in COMPAS; use a lower threshold."""
     col_types = detect_column_types(compas_df)
-    G, strengths = build_graph(compas_df, col_types, threshold=0.05)
+    G, strengths = build_graph(compas_df, col_types, threshold=0.05, protected_attributes=["sex"])
     chains = find_chains(G, strengths, ["sex"], max_depth=4, col_types=col_types)
     print(f"\nChains to 'sex' (threshold=0.05): {len(chains)}")
     for c in chains[:3]:
@@ -75,7 +75,7 @@ def test_chains_found_to_sex(compas_df):
 def test_multi_hop_chain_exists(compas_df):
     """The core novelty claim: at least one chain has depth >= 2."""
     col_types = detect_column_types(compas_df)
-    G, strengths = build_graph(compas_df, col_types, threshold=0.10)
+    G, strengths = build_graph(compas_df, col_types, threshold=0.10, protected_attributes=["race", "sex"])
     chains = find_chains(G, strengths, ["race", "sex"], max_depth=4, col_types=col_types)
 
     multi_hop = [c for c in chains if len(c.hops) >= 2]
@@ -89,7 +89,7 @@ def test_multi_hop_chain_exists(compas_df):
 
 def test_risk_scoring(compas_df):
     col_types = detect_column_types(compas_df)
-    G, strengths = build_graph(compas_df, col_types, threshold=0.10)
+    G, strengths = build_graph(compas_df, col_types, threshold=0.10, protected_attributes=["race"])
     chains = find_chains(G, strengths, ["race"], max_depth=3, col_types=col_types)
 
     scored = score_all_chains(compas_df, chains[:5])
@@ -117,7 +117,7 @@ def test_synthetic_chain_detection():
 
     df = pd.DataFrame({"zip_code": zip_code, "income": income, "credit": credit, "race": race})
     col_types = detect_column_types(df)
-    G, strengths = build_graph(df, col_types, threshold=0.05)
+    G, strengths = build_graph(df, col_types, threshold=0.05, protected_attributes=["race"])
     chains = find_chains(G, strengths, ["race"], max_depth=4, col_types=col_types)
 
     print(f"\nSynthetic chains found: {len(chains)}")
