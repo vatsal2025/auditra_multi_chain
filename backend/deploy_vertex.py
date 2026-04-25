@@ -48,7 +48,6 @@ def deploy_model(display_name: str) -> str:
 
     endpoint = model.deploy(
         deployed_model_display_name=display_name,
-        endpoint_display_name=f"{display_name}-endpoint",
         machine_type=MACHINE,
         min_replica_count=1,
         max_replica_count=1,
