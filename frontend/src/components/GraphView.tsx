@@ -1,11 +1,16 @@
 import { useEffect, useRef } from 'react'
 import * as d3 from 'd3'
-import { AuditResponse, Chain } from '../services/api'
+import { AuditResponse, Chain, GraphNode } from '../services/api'
 
 interface Props {
   audit: AuditResponse
   selectedChain: Chain | null
   onNodeClick: (nodeId: string) => void
+}
+
+interface SimNode extends GraphNode, d3.SimulationNodeDatum {
+  fx?: number | null
+  fy?: number | null
 }
 
 const RISK_COLORS: Record<string, string> = {
@@ -65,10 +70,10 @@ export default function GraphView({ audit, selectedChain, onNodeClick }: Props) 
       .attr('d', 'M0,-5L10,0L0,5')
       .attr('fill', d => d === 'highlighted' ? '#ef4444' : '#334155')
 
-    const nodesCopy = audit.nodes.map(n => ({ ...n }))
+    const nodesCopy: SimNode[] = audit.nodes.map(n => ({ ...n }))
     const edgesCopy = audit.edges.map(e => ({ ...e }))
 
-    const simulation = d3.forceSimulation(nodesCopy as any)
+    const simulation = d3.forceSimulation<SimNode>(nodesCopy)
       .force('link', d3.forceLink(edgesCopy)
         .id((d: any) => d.id)
         .distance(130))
@@ -93,7 +98,7 @@ export default function GraphView({ audit, selectedChain, onNodeClick }: Props) 
         return `url(#arrow-${highlightedEdges.has(key) ? 'highlighted' : 'default'})`
       })
 
-    const node = g.append('g').selectAll<SVGGElement, any>('g')
+    const node = g.append('g').selectAll<SVGGElement, SimNode>('g')
       .data(nodesCopy)
       .join('g')
       .attr('cursor', 'grab')
@@ -102,7 +107,7 @@ export default function GraphView({ audit, selectedChain, onNodeClick }: Props) 
         onNodeClick(d.id)
       })
       .call(
-        d3.drag<SVGGElement, any>()
+        d3.drag<SVGGElement, SimNode>()
           .on('start', (event, d) => {
             if (!event.active) simulation.alphaTarget(0.3).restart()
             d.fx = d.x; d.fy = d.y
@@ -112,7 +117,6 @@ export default function GraphView({ audit, selectedChain, onNodeClick }: Props) 
           })
           .on('end', (event, d) => {
             if (!event.active) simulation.alphaTarget(0)
-            // Keep pinned — release only on double-click
             d.fx = event.x; d.fy = event.y
           })
       )
@@ -155,7 +159,7 @@ export default function GraphView({ audit, selectedChain, onNodeClick }: Props) 
         .attr('y1', d => (d.source as any).y)
         .attr('x2', d => (d.target as any).x)
         .attr('y2', d => (d.target as any).y)
-      node.attr('transform', d => `translate(${d.x},${d.y})`)
+      node.attr('transform', d => `translate(${d.x ?? 0},${d.y ?? 0})`)
     })
 
     // Fit view hint
