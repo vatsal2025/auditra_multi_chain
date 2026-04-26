@@ -143,7 +143,7 @@ def score_chain_vertex(df: pd.DataFrame, chain: Chain) -> Optional[float]:
              for col in all_input_cols}
             for _, row in subset.iterrows()
         ]
-        response  = endpoint.predict(instances=instances)
+        response  = endpoint.predict(instances=instances, timeout=8)
 
         actual = subset[target_col].astype(str).tolist()
         preds  = []
@@ -327,7 +327,7 @@ def predict_outcome_vertex(
             {col: str(row[col]) for col in all_input_cols}
             for _, row in subset.iterrows()
         ]
-        response  = endpoint.predict(instances=instances)
+        response  = endpoint.predict(instances=instances, timeout=8)
 
         preds = []
         for pred in response.predictions:
