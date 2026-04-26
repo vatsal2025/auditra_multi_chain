@@ -112,10 +112,11 @@ def score_chain_vertex(df: pd.DataFrame, chain: Chain) -> Optional[float]:
         from google.cloud import aiplatform
 
         endpoint = aiplatform.Endpoint(endpoint_id)
-        # Send full row; non-chain features as empty string (AutoML handles as missing)
+        # Send full row; non-chain features as None (JSON null) so AutoML treats them
+        # as missing rather than failing numeric transformation on empty string.
         chain_set = set(available)
         instances = [
-            {col: (str(row[col]) if col in chain_set else "") for col in all_input_cols}
+            {col: (str(row[col]) if col in chain_set else None) for col in all_input_cols}
             for _, row in subset.iterrows()
         ]
         response  = endpoint.predict(instances=instances)
@@ -185,7 +186,7 @@ def get_shap_vertex(
         endpoint  = aiplatform.Endpoint(endpoint_id)
         chain_set = set(available)
         instances = [
-            {col: (str(row[col]) if col in chain_set else "") for col in all_input_cols}
+            {col: (str(row[col]) if col in chain_set else None) for col in all_input_cols}
             for _, row in subset.iterrows()
         ]
         response  = endpoint.explain(instances=instances)
