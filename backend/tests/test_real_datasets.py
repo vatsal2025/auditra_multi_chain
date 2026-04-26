@@ -959,8 +959,13 @@ class TestVertexAIFairnessScoring:
         if fpr_ratio:
             print(f"  FPR ratio: {fpr_ratio:.4f}  (ProPublica unmitigated: 1.910)")
 
-        assert m.statistical_parity_diff < 0, "Black defendants should have worse predicted outcomes"
-        assert m.disparate_impact_ratio < 1.0, "DI ratio should be < 1.0 for disadvantaged group"
+        # positive_outcome="1" means recidivism. Black defendants predicted to recidivate MORE
+        # → SPD = P(recid|Black) - P(recid|White) > 0, DI = P(recid|Black)/P(recid|White) > 1.0
+        assert m.statistical_parity_diff > 0, (
+            f"With recidivism as positive outcome, Black defendants have higher predicted rate "
+            f"(SPD should be positive). Got {m.statistical_parity_diff:.4f}"
+        )
+        assert m.disparate_impact_ratio > 1.0, "DI > 1.0: Black defendants predicted to recidivate more"
 
         # Mitigated must beat ProPublica baseline
         m_mit = compute_mitigated_fairness_metrics(compas_df, "race", "two_year_recid", "Caucasian", "1")

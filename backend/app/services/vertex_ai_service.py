@@ -9,8 +9,9 @@ Auth: Application Default Credentials (ADC) — automatic on GCP VMs.
   - auditra-chain-scorer-adult-test   → predicts `sex`
   - auditra-chain-scorer-german       → predicts `sex`
 
-Each model trained on all dataset features. At chain scoring time, only
-chain-path features are sent; Vertex AI AutoML treats missing cols as null.
+Each model trained on all dataset features. AutoML tabular endpoints require
+ALL training columns in prediction requests — missing columns → 400 error.
+Non-chain / non-feature columns are sent as empty string "".
 """
 from collections import Counter
 from typing import List, Optional
@@ -99,7 +100,10 @@ def score_chain_vertex(df: pd.DataFrame, chain: Chain) -> Optional[float]:
     if not available:
         return None
 
-    subset = df[available + [target_col]].dropna(subset=[target_col]).head(200)
+    # All dataset cols except target — AutoML requires full schema
+    all_input_cols = [c for c in df.columns if c != target_col]
+
+    subset = df[all_input_cols + [target_col]].dropna(subset=[target_col]).head(200)
     if len(subset) < 10:
         return None
 
@@ -107,8 +111,13 @@ def score_chain_vertex(df: pd.DataFrame, chain: Chain) -> Optional[float]:
         _init_vertex()
         from google.cloud import aiplatform
 
-        endpoint  = aiplatform.Endpoint(endpoint_id)
-        instances = subset[available].astype(str).to_dict(orient="records")
+        endpoint = aiplatform.Endpoint(endpoint_id)
+        # Send full row; non-chain features as empty string (AutoML handles as missing)
+        chain_set = set(available)
+        instances = [
+            {col: (str(row[col]) if col in chain_set else "") for col in all_input_cols}
+            for _, row in subset.iterrows()
+        ]
         response  = endpoint.predict(instances=instances)
 
         actual = subset[target_col].astype(str).tolist()
@@ -163,7 +172,9 @@ def get_shap_vertex(
     if not available:
         return None
 
-    subset = df[available + [target_col]].dropna(subset=[target_col]).head(50)
+    all_input_cols = [c for c in df.columns if c != target_col]
+
+    subset = df[all_input_cols + [target_col]].dropna(subset=[target_col]).head(50)
     if len(subset) < 5:
         return None
 
@@ -172,7 +183,11 @@ def get_shap_vertex(
         from google.cloud import aiplatform
 
         endpoint  = aiplatform.Endpoint(endpoint_id)
-        instances = subset[available].astype(str).to_dict(orient="records")
+        chain_set = set(available)
+        instances = [
+            {col: (str(row[col]) if col in chain_set else "") for col in all_input_cols}
+            for _, row in subset.iterrows()
+        ]
         response  = endpoint.explain(instances=instances)
 
         attr_sum: dict[str, float] = {col: 0.0 for col in available}
@@ -232,7 +247,10 @@ def predict_outcome_vertex(
     if not available or outcome_col not in df.columns:
         return None
 
-    subset = df[available + [outcome_col]].dropna(subset=[outcome_col])
+    # All cols except outcome — AutoML outcome-scorer was trained with ALL input cols
+    all_input_cols = [c for c in df.columns if c != outcome_col]
+
+    subset = df[all_input_cols + [outcome_col]].dropna(subset=[outcome_col])
 
     # Stratified sample by outcome to preserve class balance
     if len(subset) > sample_size:
@@ -255,7 +273,11 @@ def predict_outcome_vertex(
         from google.cloud import aiplatform
 
         endpoint  = aiplatform.Endpoint(endpoint_id)
-        instances = subset[available].astype(str).to_dict(orient="records")
+        # Outcome-scorer trained on ALL input columns — send real values for all
+        instances = [
+            {col: str(row[col]) for col in all_input_cols}
+            for _, row in subset.iterrows()
+        ]
         response  = endpoint.predict(instances=instances)
 
         preds = []
