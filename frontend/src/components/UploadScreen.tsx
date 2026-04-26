@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useState } from 'react'
 import { useDropzone } from 'react-dropzone'
 import axios from 'axios'
 import {
@@ -16,86 +16,10 @@ interface Props {
   auditData: AuditResponse | null
 }
 
-const DEMO_STEPS = [
-  { label: 'Loading 48,842 rows…',              ms: 900 },
-  { label: 'Detecting column types…',            ms: 800 },
-  { label: 'Building feature correlation graph…', ms: 1200 },
-  { label: 'Tracing relay chains (depth 4)…',    ms: 2000 },
-  { label: 'Scoring paths with Vertex AI (AutoML)…', ms: 1800 },
-  { label: 'Computing fairness metrics…',         ms: 1500 },
-  { label: 'Running Vertex AI outcome scorer…',   ms: 1200 },
-  { label: 'Generating audit report…',            ms: 600 },
-]
-const DEMO_TOTAL_MS = DEMO_STEPS.reduce((s, x) => s + x.ms, 0)
-
-function DemoProgress({ onDone, waiting }: { onDone: () => void; waiting?: boolean }) {
-  const [step, setStep] = useState(0)
-  const [pct, setPct] = useState(0)
-  const startRef = useRef(Date.now())
-  const doneRef = useRef(false)
-
-  useEffect(() => {
-    let elapsed = 0
-    const timers: ReturnType<typeof setTimeout>[] = []
-    DEMO_STEPS.forEach((s, i) => {
-      timers.push(setTimeout(() => setStep(i), elapsed))
-      elapsed += s.ms
-    })
-    // smooth progress bar
-    const interval = setInterval(() => {
-      const t = Date.now() - startRef.current
-      setPct(Math.min(99, (t / DEMO_TOTAL_MS) * 100))
-    }, 80)
-    timers.push(setTimeout(() => {
-      clearInterval(interval)
-      setPct(100)
-      if (!doneRef.current) { doneRef.current = true; onDone() }
-    }, DEMO_TOTAL_MS))
-    return () => { timers.forEach(clearTimeout); clearInterval(interval) }
-  }, [onDone])
-
-  return (
-    <div className="mb-6 p-6 bg-slate-800/80 border border-slate-600 rounded-xl space-y-4">
-      <div className="flex items-center gap-3">
-        <div className="w-5 h-5 border-2 border-red-400 border-t-transparent rounded-full animate-spin shrink-0" />
-        <span className="text-white font-semibold text-sm">
-          {waiting ? 'Finalising results…' : 'Auditing Adult Income dataset…'}
-        </span>
-        <span className="ml-auto text-red-400 font-mono text-sm font-bold">{Math.round(pct)}%</span>
-      </div>
-
-      {/* Progress bar */}
-      <div className="h-1.5 bg-slate-700 rounded-full overflow-hidden">
-        <div
-          className="h-full bg-gradient-to-r from-red-600 to-orange-400 rounded-full transition-all"
-          style={{ width: `${pct}%`, transition: 'width 0.08s linear' }}
-        />
-      </div>
-
-      {/* Steps */}
-      <div className="space-y-1.5">
-        {DEMO_STEPS.map((s, i) => (
-          <div key={s.label} className={`flex items-center gap-2 text-xs transition-all duration-300
-            ${i < step ? 'text-green-400' : i === step ? 'text-white' : 'text-slate-600'}`}>
-            {i < step
-              ? <span className="w-3.5 shrink-0">✓</span>
-              : i === step
-                ? <span className="w-3.5 h-3.5 border border-red-400 border-t-transparent rounded-full animate-spin shrink-0 inline-block" />
-                : <span className="w-3.5 shrink-0 text-slate-700">○</span>
-            }
-            {s.label}
-          </div>
-        ))}
-      </div>
-    </div>
-  )
-}
-
 export default function UploadScreen({ onUploadComplete, onAuditComplete, uploadData }: Props) {
   const [uploading, setUploading] = useState(false)
   const [auditing, setAuditing] = useState(false)
   const [demoLoading, setDemoLoading] = useState(false)
-  const [demoReady, setDemoReady] = useState<{ upload: UploadResponse; audit: AuditResponse } | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [columns, setColumns] = useState<ColumnInfo[]>([])
   const [sessionId, setSessionId] = useState<string | null>(null)
@@ -149,38 +73,18 @@ export default function UploadScreen({ onUploadComplete, onAuditComplete, upload
     }
   }
 
-  const animDoneRef = useRef(false)
-  const dataReadyRef = useRef<{ upload: UploadResponse; audit: AuditResponse } | null>(null)
-
-  const revealDemo = (data: { upload: UploadResponse; audit: AuditResponse }) => {
-    onUploadComplete(data.upload)
-    onAuditComplete(data.audit)
-    setDemoLoading(false)
-  }
-
   const handleDemo = async () => {
-    animDoneRef.current = false
-    dataReadyRef.current = null
     setDemoLoading(true)
-    setDemoReady(null)
     setError(null)
     try {
       const res = await axios.post<{ upload: UploadResponse; audit: AuditResponse }>('/api/demo/adult')
-      dataReadyRef.current = res.data
-      setDemoReady(res.data)
-      // If animation already finished, reveal immediately
-      if (animDoneRef.current) revealDemo(res.data)
+      onUploadComplete(res.data.upload)
+      onAuditComplete(res.data.audit)
     } catch (e: any) {
-      setDemoLoading(false)
       setError(e.response?.data?.detail || 'Could not load demo.')
+    } finally {
+      setDemoLoading(false)
     }
-  }
-
-  const handleDemoAnimationDone = () => {
-    animDoneRef.current = true
-    // If API already returned, reveal immediately; otherwise wait for API
-    if (dataReadyRef.current) revealDemo(dataReadyRef.current)
-    // else: API response handler above will call revealDemo when it arrives
   }
 
   return (
@@ -201,25 +105,25 @@ export default function UploadScreen({ onUploadComplete, onAuditComplete, upload
         </p>
       </div>
 
-      {/* Demo banner / progress */}
-      {!columns.length && !demoLoading && (
+      {/* Demo banner */}
+      {!columns.length && (
         <div className="mb-6 p-4 bg-slate-800/60 border border-slate-600 rounded-xl flex items-center justify-between gap-4">
           <div>
-            <p className="text-white text-sm font-semibold">Try with Adult Income — see HIGH-risk chains in seconds</p>
+            <p className="text-white text-sm font-semibold">Try with Adult Income — see HIGH-risk chains instantly</p>
             <p className="text-slate-400 text-xs mt-0.5">
               UCI dataset behind Amazon's 2018 hiring AI scandal — occupation → sex chains, skill 0.51
             </p>
           </div>
           <button
             onClick={handleDemo}
-            className="shrink-0 px-5 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-bold rounded-lg transition-colors whitespace-nowrap"
+            disabled={demoLoading}
+            className="shrink-0 px-5 py-2 bg-red-600 hover:bg-red-700 disabled:bg-slate-700 text-white text-sm font-bold rounded-lg transition-colors whitespace-nowrap flex items-center gap-2"
           >
-            Run Demo →
+            {demoLoading
+              ? <><span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />Loading…</>
+              : 'Run Demo →'}
           </button>
         </div>
-      )}
-      {!columns.length && demoLoading && (
-        <DemoProgress onDone={handleDemoAnimationDone} waiting={animDoneRef.current && !demoReady} />
       )}
 
       {/* Dropzone */}
@@ -335,7 +239,7 @@ export default function UploadScreen({ onUploadComplete, onAuditComplete, upload
       )}
 
       {/* Evidence cards */}
-      {!columns.length && !demoLoading && (
+      {!columns.length && (
         <div className="mt-12 grid grid-cols-1 sm:grid-cols-3 gap-4">
           {[
             { co: 'Amazon Hiring AI', year: '2018', chain: 'University → Location → Demographics → Race', depth: '3-hop' },
