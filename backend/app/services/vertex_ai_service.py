@@ -149,7 +149,11 @@ def score_chain_vertex(df: pd.DataFrame, chain: Chain) -> Optional[float]:
                 preds.append(str(pred))
 
         accuracy = sum(p == a for p, a in zip(preds, actual)) / max(len(actual), 1)
-        return _skill_score(accuracy, actual)
+        skill = _skill_score(accuracy, actual)
+        # Return None (→ LightGBM fallback) if no signal above majority baseline.
+        # AutoML trained on full features degrades to majority-class prediction when
+        # non-chain features are mean-filled, so skill=0 is not a useful chain score.
+        return skill if skill > 0 else None
 
     except Exception as e:
         print(f"[Vertex AI] Prediction failed ({dataset}/{endpoint_id}): {e}")
