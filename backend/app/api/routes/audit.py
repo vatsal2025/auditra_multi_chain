@@ -32,10 +32,11 @@ async def run_audit(req: AuditRequest):
     # Score: baseline-adjusted skill score via LightGBM / Vertex AI
     chains = score_all_chains(df, chains)
 
-    # Gemini explanations: top 5 only (API quota), rest use fallback text
+    # Gemini explanations: top 3 HIGH/CRITICAL only in fast mode, top 5 otherwise
     from app.services.gemini_service import _fallback_explanation
+    explain_limit = 2 if req.fast_mode else 5
     for i, chain in enumerate(chains[:20]):
-        if i < 5:
+        if i < explain_limit and chain.risk_label in ("HIGH", "CRITICAL"):
             explanation = gemini_service.explain_chain(chain)
         else:
             explanation = _fallback_explanation(chain)
@@ -69,7 +70,7 @@ async def run_audit(req: AuditRequest):
 
     # --- Conjunctive proxy detection (Type 2 Zliobaite) ---
     conjunctive_proxies = []
-    if len(df.columns) <= 30:  # skip on very wide datasets for performance
+    if not req.fast_mode and len(df.columns) <= 30:
         from app.services.interaction_scanner import find_conjunctive_proxies
         conjunctive_proxies = find_conjunctive_proxies(
             df,
@@ -81,7 +82,7 @@ async def run_audit(req: AuditRequest):
 
     # --- Calibration audit (Chouldechova 2017) ---
     calibration_audit = None
-    if req.outcome_column and req.outcome_column in df.columns:
+    if not req.fast_mode and req.outcome_column and req.outcome_column in df.columns:
         from app.services.calibration import compute_calibration_audit
         positive = req.positive_outcome or _infer_positive_outcome(df, req.outcome_column)
         for attr in req.protected_attributes:
@@ -92,7 +93,7 @@ async def run_audit(req: AuditRequest):
 
     # --- Intersectional audit (Kearns 2018) ---
     intersectional_audit = None
-    if req.outcome_column and req.outcome_column in df.columns and len(req.protected_attributes) >= 2:
+    if not req.fast_mode and req.outcome_column and req.outcome_column in df.columns and len(req.protected_attributes) >= 2:
         from app.services.intersectional import compute_intersectional_audit
         positive = req.positive_outcome or _infer_positive_outcome(df, req.outcome_column)
         intersectional_audit = compute_intersectional_audit(

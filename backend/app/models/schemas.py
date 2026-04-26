@@ -24,6 +24,8 @@ class AuditRequest(BaseModel):
     outcome_column: Optional[str] = None
     privileged_groups: Optional[Dict[str, str]] = None
     positive_outcome: Optional[str] = None
+    # Fast mode: skip conjunctive/intersectional/calibration (used by demo cold path)
+    fast_mode: bool = False
 
 
 class ChainHop(BaseModel):

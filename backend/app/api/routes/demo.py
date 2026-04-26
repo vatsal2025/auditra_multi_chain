@@ -94,6 +94,7 @@ async def warm_adult_cache() -> None:
             outcome_column="income",
             privileged_groups={"sex": "Male", "race": "White"},
             positive_outcome=">50K",
+            fast_mode=True,
         )
         audit_result = await run_audit(audit_req)
         session_store.delete(tmp_id)
@@ -270,6 +271,7 @@ async def load_adult_demo():
             outcome_column="income",
             privileged_groups={"sex": "Male", "race": "White"},
             positive_outcome=">50K",
+            fast_mode=True,
         )
         audit_result = await run_audit(audit_req)
 

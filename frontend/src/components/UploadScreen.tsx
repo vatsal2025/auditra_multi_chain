@@ -28,7 +28,7 @@ const DEMO_STEPS = [
 ]
 const DEMO_TOTAL_MS = DEMO_STEPS.reduce((s, x) => s + x.ms, 0)
 
-function DemoProgress({ onDone }: { onDone: () => void }) {
+function DemoProgress({ onDone, waiting }: { onDone: () => void; waiting?: boolean }) {
   const [step, setStep] = useState(0)
   const [pct, setPct] = useState(0)
   const startRef = useRef(Date.now())
@@ -58,7 +58,9 @@ function DemoProgress({ onDone }: { onDone: () => void }) {
     <div className="mb-6 p-6 bg-slate-800/80 border border-slate-600 rounded-xl space-y-4">
       <div className="flex items-center gap-3">
         <div className="w-5 h-5 border-2 border-red-400 border-t-transparent rounded-full animate-spin shrink-0" />
-        <span className="text-white font-semibold text-sm">Auditing Adult Income dataset…</span>
+        <span className="text-white font-semibold text-sm">
+          {waiting ? 'Finalising results…' : 'Auditing Adult Income dataset…'}
+        </span>
         <span className="ml-auto text-red-400 font-mono text-sm font-bold">{Math.round(pct)}%</span>
       </div>
 
@@ -147,15 +149,27 @@ export default function UploadScreen({ onUploadComplete, onAuditComplete, upload
     }
   }
 
+  const animDoneRef = useRef(false)
+  const dataReadyRef = useRef<{ upload: UploadResponse; audit: AuditResponse } | null>(null)
+
+  const revealDemo = (data: { upload: UploadResponse; audit: AuditResponse }) => {
+    onUploadComplete(data.upload)
+    onAuditComplete(data.audit)
+    setDemoLoading(false)
+  }
+
   const handleDemo = async () => {
+    animDoneRef.current = false
+    dataReadyRef.current = null
     setDemoLoading(true)
     setDemoReady(null)
     setError(null)
     try {
-      // Fire API immediately — response comes back instantly from disk cache
       const res = await axios.post<{ upload: UploadResponse; audit: AuditResponse }>('/api/demo/adult')
-      // Store result; DemoProgress animation calls onDone() after ~10s
+      dataReadyRef.current = res.data
       setDemoReady(res.data)
+      // If animation already finished, reveal immediately
+      if (animDoneRef.current) revealDemo(res.data)
     } catch (e: any) {
       setDemoLoading(false)
       setError(e.response?.data?.detail || 'Could not load demo.')
@@ -163,10 +177,10 @@ export default function UploadScreen({ onUploadComplete, onAuditComplete, upload
   }
 
   const handleDemoAnimationDone = () => {
-    if (!demoReady) return
-    onUploadComplete(demoReady.upload)
-    onAuditComplete(demoReady.audit)
-    setDemoLoading(false)
+    animDoneRef.current = true
+    // If API already returned, reveal immediately; otherwise wait for API
+    if (dataReadyRef.current) revealDemo(dataReadyRef.current)
+    // else: API response handler above will call revealDemo when it arrives
   }
 
   return (
@@ -205,7 +219,7 @@ export default function UploadScreen({ onUploadComplete, onAuditComplete, upload
         </div>
       )}
       {!columns.length && demoLoading && (
-        <DemoProgress onDone={handleDemoAnimationDone} />
+        <DemoProgress onDone={handleDemoAnimationDone} waiting={animDoneRef.current && !demoReady} />
       )}
 
       {/* Dropzone */}
