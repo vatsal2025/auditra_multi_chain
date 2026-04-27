@@ -1,6 +1,5 @@
 import { useCallback, useState } from 'react'
 import { useDropzone } from 'react-dropzone'
-import axios from 'axios'
 import {
   AuditResponse,
   ColumnInfo,
@@ -8,6 +7,7 @@ import {
   UploadResponse,
   uploadDataset,
 } from '../services/api'
+import { DEMO_AUDIT, DEMO_UPLOAD } from '../data/adultDemoFixture'
 
 interface Props {
   onUploadComplete: (data: UploadResponse) => void
@@ -19,7 +19,6 @@ interface Props {
 export default function UploadScreen({ onUploadComplete, onAuditComplete, uploadData }: Props) {
   const [uploading, setUploading] = useState(false)
   const [auditing, setAuditing] = useState(false)
-  const [demoLoading, setDemoLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [columns, setColumns] = useState<ColumnInfo[]>([])
   const [sessionId, setSessionId] = useState<string | null>(null)
@@ -73,18 +72,9 @@ export default function UploadScreen({ onUploadComplete, onAuditComplete, upload
     }
   }
 
-  const handleDemo = async () => {
-    setDemoLoading(true)
-    setError(null)
-    try {
-      const res = await axios.post<{ upload: UploadResponse; audit: AuditResponse }>('/api/demo/adult')
-      onUploadComplete(res.data.upload)
-      onAuditComplete(res.data.audit)
-    } catch (e: any) {
-      setError(e.response?.data?.detail || 'Could not load demo.')
-    } finally {
-      setDemoLoading(false)
-    }
+  const handleDemo = () => {
+    onUploadComplete(DEMO_UPLOAD)
+    onAuditComplete(DEMO_AUDIT)
   }
 
   return (
@@ -116,12 +106,9 @@ export default function UploadScreen({ onUploadComplete, onAuditComplete, upload
           </div>
           <button
             onClick={handleDemo}
-            disabled={demoLoading}
-            className="shrink-0 px-5 py-2 bg-red-600 hover:bg-red-700 disabled:bg-slate-700 text-white text-sm font-bold rounded-lg transition-colors whitespace-nowrap flex items-center gap-2"
+            className="shrink-0 px-5 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-bold rounded-lg transition-colors whitespace-nowrap"
           >
-            {demoLoading
-              ? <><span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />Loading…</>
-              : 'Run Demo →'}
+            Run Demo →
           </button>
         </div>
       )}

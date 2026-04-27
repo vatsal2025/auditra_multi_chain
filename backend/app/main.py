@@ -1,6 +1,5 @@
 import logging
 import os
-import threading
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -27,24 +26,6 @@ app.include_router(audit.router, prefix="/api")
 app.include_router(fix.router, prefix="/api")
 app.include_router(chat.router, prefix="/api")
 app.include_router(report.router, prefix="/api")
-
-
-@app.on_event("startup")
-async def _startup():
-    # Run cache build in a daemon thread — avoids blocking the async event loop
-    # (load_adult and LightGBM training are synchronous CPU/IO)
-    import asyncio
-
-    def _run():
-        try:
-            loop = asyncio.new_event_loop()
-            loop.run_until_complete(demo.warm_adult_cache())
-            loop.close()
-        except Exception as e:
-            logger.warning(f"Background demo cache thread failed: {e}")
-
-    t = threading.Thread(target=_run, daemon=True, name="demo-cache-builder")
-    t.start()
 
 
 @app.get("/health")

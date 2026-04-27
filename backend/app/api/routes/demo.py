@@ -370,49 +370,14 @@ def _build_adult_fixture(session_id: str):
 
 @router.post("/demo/adult")
 async def load_adult_demo():
-    """Instant Adult Income demo — hardcoded fixture, no computation."""
-    from app.services.data_loader import load_adult
-
+    """Legacy endpoint — frontend now serves the fixture directly. Kept for compatibility."""
     session_id = str(uuid.uuid4())
-    protected = ["sex", "race"]
-
-    # Load real df so fix/chat/report work on this session
-    df = load_adult()
-    if df is None:
-        raise HTTPException(status_code=503, detail="Could not load Adult Income dataset.")
-    if len(df) > 8000:
-        df = df.sample(n=8000, random_state=42).reset_index(drop=True)
-    col_types = detect_column_types(df)
-
-    session_store.set(session_id, "df", df)
-    session_store.set(session_id, "col_types", col_types)
-    session_store.set(session_id, "filename", "adult-income.csv")
-    session_store.set(session_id, "chat_history", [])
-    session_store.set(session_id, "fixes_applied", [])
-    session_store.set(session_id, "audit_config", {
-        "protected_attributes": protected,
-        "outcome_column": "income",
-        "privileged_groups": {"sex": "Male", "race": "White"},
-        "positive_outcome": ">50K",
-    })
-
-    columns = [ColumnInfo(name=col, dtype=col_types[col],
-                          unique_count=int(df[col].nunique()),
-                          null_pct=round(float(df[col].isnull().mean()), 4))
-               for col in df.columns]
-
-    upload_response = UploadResponse(session_id=session_id, columns=columns, row_count=len(df))
-
     audit_result = _build_adult_fixture(session_id)
-    session_store.set(session_id, "audit", audit_result)
-
+    columns = [
+        ColumnInfo(name=n.id, dtype=n.dtype, unique_count=2, null_pct=0.0)
+        for n in audit_result.nodes
+    ]
     return {
-        "upload": upload_response,
+        "upload": UploadResponse(session_id=session_id, columns=columns, row_count=48842),
         "audit": audit_result,
-        "protected_attributes": protected,
-        "description": (
-            "UCI Adult Income: occupation and marital status form multi-hop chains "
-            "that reconstruct sex with 51% skill above random baseline — exactly the "
-            "pattern behind Amazon's 2018 hiring AI discrimination scandal."
-        ),
     }
