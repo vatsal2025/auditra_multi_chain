@@ -368,14 +368,38 @@ def _build_adult_fixture(session_id: str):
     )
 
 
+_ADULT_COL_META = {
+    "age": ("numeric", 73), "workclass": ("categorical", 8),
+    "education": ("categorical", 16), "education_num": ("numeric", 16),
+    "marital_status": ("categorical", 7), "occupation": ("categorical", 14),
+    "relationship": ("categorical", 6), "race": ("categorical", 5),
+    "sex": ("categorical", 2), "capital_gain": ("numeric", 119),
+    "capital_loss": ("numeric", 92), "hours_per_week": ("numeric", 94),
+    "native_country": ("categorical", 41), "income": ("categorical", 2),
+}
+
+
 @router.post("/demo/adult")
 async def load_adult_demo():
-    """Legacy endpoint — frontend now serves the fixture directly. Kept for compatibility."""
+    """Instant fixture — hardcoded, no ML computation. Session stored so chat/fix work."""
     session_id = str(uuid.uuid4())
     audit_result = _build_adult_fixture(session_id)
+
+    # Store session so /chat and /fix endpoints can find it
+    session_store.set(session_id, "audit", audit_result)
+    session_store.set(session_id, "chat_history", [])
+    session_store.set(session_id, "filename", "adult-income.csv")
+    session_store.set(session_id, "fixes_applied", [])
+    session_store.set(session_id, "audit_config", {
+        "protected_attributes": ["sex", "race"],
+        "outcome_column": "income",
+        "privileged_groups": {"sex": "Male", "race": "White"},
+        "positive_outcome": ">50K",
+    })
+
     columns = [
-        ColumnInfo(name=n.id, dtype=n.dtype, unique_count=2, null_pct=0.0)
-        for n in audit_result.nodes
+        ColumnInfo(name=col, dtype=meta[0], unique_count=meta[1], null_pct=0.0)
+        for col, meta in _ADULT_COL_META.items()
     ]
     return {
         "upload": UploadResponse(session_id=session_id, columns=columns, row_count=48842),

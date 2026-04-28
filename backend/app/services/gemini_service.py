@@ -130,7 +130,7 @@ def chat(
     full_prompt = f"{system_content}\n\n---\nUser: {user_message}"
 
     try:
-        model = _vertex_model("gemini-2.5-flash")
+        model = _vertex_model("gemini-1.5-flash")
         vertex_history = [
             Content(role=turn["role"], parts=[Part.from_text(turn["content"])])
             for turn in history
