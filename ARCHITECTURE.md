@@ -40,7 +40,7 @@ AuditRequest
   ├─ [3] Chain Scorer ──── Vertex AI AutoML (chain-scorer endpoints)
   │                         LightGBM fallback
   │
-  ├─ [4] Gemini Explanations ── Vertex AI Gemini 1.5 Flash 8B
+  ├─ [4] Gemini Explanations ── aicredits.in proxy → gemini-2.0-flash
   │                              (top 5 chains; rest use fallback text)
   │
   ├─ [5] Fairness Metrics ─── Vertex AI AutoML (outcome-scorer endpoints)
@@ -164,7 +164,7 @@ FixRequest (session_id, chain_id, fix_strategy)
 ```
 ChatRequest (session_id, message)
   │
-  └─ Vertex AI Gemini 2.5 Flash
+  └─ aicredits.in proxy → gemini-2.0-flash
        System prompt: audit context (chain list + dataset name)
        Multi-turn history reconstructed from request
        Returns plain-text reply
@@ -214,6 +214,40 @@ In production, FastAPI serves the compiled React bundle directly:
 - `/assets/*` → `StaticFiles` serving `frontend/dist/assets/`
 - All other paths → `frontend/dist/index.html` (React SPA catch-all)
 
+### Audit Request — Optional Fairness Fields
+
+The `/api/audit` request accepts an optional `outcome_column` field. When provided, the full fairness metrics pipeline (Steps 5–9) runs. When omitted, only chain detection + scoring runs (Steps 1–4).
+
+```json
+{
+  "session_id": "...",
+  "protected_attributes": ["sex", "race"],
+  "max_depth": 4,
+  "outcome_column": "income",      // optional — enables SPD/DI/EOD/AOD
+  "privileged_groups": null,        // auto-inferred if null
+  "positive_outcome": null          // auto-inferred (minority class)
+}
+```
+
+The frontend exposes an "Outcome column" dropdown after CSV upload. Selecting a column enables the Fairness Metrics panel in results.
+
+### Frontend Key Features
+
+- **Graph:** D3 force-directed, draggable nodes, scroll-to-zoom, pan, neon-white glowing edges, color-coded nodes by risk level. Native browser Fullscreen API on the fullscreen button.
+- **Chat:** aicredits.in → gemini-2.0-flash with full audit context injected as system prompt. 4096 token limit, 60s timeout.
+- **Suggestion chip:** Neon green clickable prompt pre-fills chat input.
+
+---
+
+## Environment Variables
+
+| Variable | Required | Purpose |
+|----------|----------|---------|
+| `AICREDITS_API_KEY` | Yes | gemini-2.0-flash via aicredits.in proxy |
+| `GCP_PROJECT_ID` | Yes | Vertex AI chain/outcome scorer endpoints |
+| `GCP_REGION` | Yes | Vertex AI region (us-central1) |
+| `VERTEX_AI_ENDPOINT_*` | No | AutoML endpoints — LightGBM fallback if unset |
+
 ---
 
 ## Vertex AI Communication
@@ -225,8 +259,8 @@ VM (Service Account)
   │
   ├─ aiplatform.Endpoint.predict()   chain-scorer endpoints  (4 endpoints)
   ├─ aiplatform.Endpoint.predict()   outcome-scorer endpoints (4 endpoints)
-  ├─ vertexai.GenerativeModel        Gemini 1.5 Flash 8B     (explanations)
-  └─ vertexai.GenerativeModel        Gemini 2.5 Flash        (chat)
+  ├─ aicredits.in (OpenAI-compat proxy) → gemini-2.0-flash  (explanations)
+  └─ aicredits.in (OpenAI-compat proxy) → gemini-2.0-flash  (chat)
 ```
 
 ---
@@ -235,7 +269,7 @@ VM (Service Account)
 
 ```
 GCP VM: auditra-vm (us-central1-a, e2-standard-4)
-  ├─ Port 8000 (TCP) — FastAPI server via nohup uvicorn
+  ├─ Port 8000 (TCP) — FastAPI server via systemd (auditra.service)
   ├─ GCP Firewall rule: allow-8000 (0.0.0.0/0)
   │
   └─ Vertex AI (managed, us-central1)

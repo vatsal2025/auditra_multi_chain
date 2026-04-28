@@ -216,7 +216,56 @@ skill < 0.25 → LOW
 
 ---
 
-## Stage 4 — Conjunctive Proxy Detection
+## Stage 4 — AI Explanations (aicredits.in → gemini-2.0-flash)
+
+**File:** `backend/app/services/gemini_service.py`
+
+After chains are scored, the top 5 chains are sent to Gemini for plain-language explanation.
+
+### API Path
+
+All Gemini calls go through the aicredits.in OpenAI-compatible proxy:
+
+```
+POST https://api.aicredits.in/v1/chat/completions
+Authorization: Bearer <AICREDITS_API_KEY>
+Model: gemini-2.0-flash
+```
+
+### Prompt Structure
+
+```python
+system: "You are a fairness auditing expert. Given a proxy discrimination chain..."
+user:   "Chain: {path} | Protected attribute: {attr} | Hop weights: {weights}"
+```
+
+Gemini is instructed to:
+1. Name the historical or social mechanism behind the chain
+2. Cite applicable regulations (ECOA, EU AI Act Article 10, GDPR Article 22)
+3. Suggest a concrete mitigation
+
+### Coverage
+
+- Chains 1–5: AI-generated explanation (Gemini call per chain)
+- Chains 6–20: Deterministic fallback template (no API call)
+- Chains 21+: No explanation
+
+### Caching
+
+```python
+_explanation_cache: dict[str, str] = {}
+# Key: f"{protected_attr}::{':'.join(path)}"
+```
+
+Repeated audits on the same chain (e.g. re-running after a fix) return cached explanations instantly.
+
+### Chat
+
+The same aicredits.in proxy handles the chat endpoint (`POST /api/chat`). The full audit context (chain list, dataset name, column types) is injected as the system prompt. max_tokens: 4096, timeout: 60s.
+
+---
+
+## Stage 5 — Conjunctive Proxy Detection
 
 **File:** `backend/app/services/interaction_scanner.py`
 
@@ -243,7 +292,7 @@ Interaction gain measures how much additional discriminatory power the pair has 
 
 ---
 
-## Stage 5 — Standard Fairness Metrics
+## Stage 6 — Standard Fairness Metrics
 
 **File:** `backend/app/services/fairness_metrics.py`
 
@@ -317,7 +366,7 @@ Full dataset used (no sampling) with 5-fold CV. This is the path used for mitiga
 
 ---
 
-## Stage 6 — Reweighing Mitigation
+## Stage 7 — Reweighing Mitigation
 
 **File:** `backend/app/services/reweighing.py`
 
@@ -359,7 +408,7 @@ On all three benchmark datasets, `disc_after` converges to < 0.001.
 
 ---
 
-## Stage 7 — Calibration Audit
+## Stage 8 — Calibration Audit
 
 **File:** `backend/app/services/calibration.py`
 
@@ -401,7 +450,7 @@ Threshold: gap < 0.05 → pass (well-calibrated across groups).
 
 ---
 
-## Stage 8 — Intersectional Audit
+## Stage 9 — Intersectional Audit
 
 **File:** `backend/app/services/intersectional.py`
 

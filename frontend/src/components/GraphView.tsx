@@ -26,6 +26,20 @@ export default function GraphView({ audit, selectedChain, onNodeClick }: Props) 
   const svgRef = useRef<SVGSVGElement>(null)
   const [isFullscreen, setIsFullscreen] = useState(false)
 
+  const toggleFullscreen = () => {
+    if (!document.fullscreenElement) {
+      containerRef.current?.requestFullscreen()
+    } else {
+      document.exitFullscreen()
+    }
+  }
+
+  useEffect(() => {
+    const handler = () => setIsFullscreen(!!document.fullscreenElement)
+    document.addEventListener('fullscreenchange', handler)
+    return () => document.removeEventListener('fullscreenchange', handler)
+  }, [])
+
   useEffect(() => {
     const el = svgRef.current
     const container = containerRef.current
@@ -184,13 +198,11 @@ export default function GraphView({ audit, selectedChain, onNodeClick }: Props) 
   return (
     <div
       ref={containerRef}
-      className={`relative rounded-xl bg-slate-900 border border-slate-700 overflow-hidden transition-all duration-200 ${
-        isFullscreen ? 'fixed inset-0 z-50 rounded-none border-0' : 'w-full'
-      }`}
-      style={isFullscreen ? {} : { height: '62vh', minHeight: 480 }}
+      className="relative w-full rounded-xl bg-slate-900 border border-slate-700 overflow-hidden"
+      style={{ height: isFullscreen ? '100vh' : '62vh', minHeight: isFullscreen ? '100vh' : 480 }}
     >
       <button
-        onClick={() => setIsFullscreen(f => !f)}
+        onClick={toggleFullscreen}
         className="absolute top-3 right-3 z-10 bg-slate-800/90 hover:bg-slate-700 border border-slate-600 text-slate-300 hover:text-white rounded-lg px-3 py-1.5 text-xs font-medium transition-colors backdrop-blur-sm"
       >
         {isFullscreen ? '✕ Exit Fullscreen' : '⛶ Fullscreen'}
