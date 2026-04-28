@@ -66,7 +66,7 @@ export default function AuditScreen({ uploadData, initialAuditData, onAuditCompl
     const removed = fix.removed_feature
     const remainingChains = audit.chains.filter(c =>
       c.id !== fix.chain_id &&
-      (removed === '' || c.weakest_link !== removed)
+      (removed === '' || !c.path.includes(removed))
     )
     const remainingNodes = removed
       ? audit.nodes.filter(n => n.id !== removed)

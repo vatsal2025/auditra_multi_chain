@@ -135,12 +135,11 @@ async def apply_chain_fix(req: FixRequest):
             df_before, fixed_df, removed_feature, audit_config
         )
 
-        # Purge stale chains whose weakest_link no longer exists
-        remaining_cols = set(fixed_df.columns)
+        # Purge all chains that reference the removed feature anywhere in their path
         remaining_chains = [
             c for c in audit.chains
             if c.id != req.chain_id
-            and (c.weakest_link is None or c.weakest_link in remaining_cols)
+            and (not removed_feature or removed_feature not in c.path)
         ]
 
         # Also purge conjunctive proxies that reference the removed feature
