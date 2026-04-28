@@ -63,16 +63,22 @@ export default function AuditScreen({ uploadData, initialAuditData, onAuditCompl
   const handleFixApplied = (fix: FixResponse) => {
     setLastFix(fix)
     if (!audit) return
-    // Also remove sibling chains sharing the same weakest_link (backend purges them too)
-    const remaining = audit.chains.filter(c =>
+    const removed = fix.removed_feature
+    const remainingChains = audit.chains.filter(c =>
       c.id !== fix.chain_id &&
-      (fix.removed_feature === '' || c.weakest_link !== fix.removed_feature)
+      (removed === '' || c.weakest_link !== removed)
     )
-    const updated = { ...audit, chains: remaining }
+    const remainingNodes = removed
+      ? audit.nodes.filter(n => n.id !== removed)
+      : audit.nodes
+    const remainingEdges = removed
+      ? audit.edges.filter(e => e.source !== removed && e.target !== removed)
+      : audit.edges
+    const updated = { ...audit, chains: remainingChains, nodes: remainingNodes, edges: remainingEdges }
     setAudit(updated)
     onAuditComplete(updated)
     setSelectedChain(null)
-    toast?.(`Removed '${fix.removed_feature}' - chain broken`, 'success')
+    toast?.(`Removed '${removed}' - chain broken`, 'success')
   }
 
   const handleReport = async () => {
