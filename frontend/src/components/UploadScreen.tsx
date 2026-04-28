@@ -321,7 +321,7 @@ export default function UploadScreen({ onUploadComplete, onAuditComplete, upload
               className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-sm text-white
                 focus:outline-none focus:border-slate-400 cursor-pointer"
             >
-              <option value="">— Skip fairness metrics —</option>
+              <option value="">— Select outcome for fairness metrics —</option>
               {columns
                 .filter(col => !selected.has(col.name))
                 .map(col => (
