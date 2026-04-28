@@ -89,6 +89,7 @@ export default function UploadScreen({ onUploadComplete, onAuditComplete, upload
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [maxDepth, setMaxDepth] = useState(4)
   const [rowCount, setRowCount] = useState(0)
+  const [outcomeColumn, setOutcomeColumn] = useState<string>('')
 
   const onDrop = useCallback(async (acceptedFiles: File[]) => {
     const file = acceptedFiles[0]
@@ -127,7 +128,7 @@ export default function UploadScreen({ onUploadComplete, onAuditComplete, upload
     setAuditing(true)
     setError(null)
     try {
-      const res = await runAudit(sessionId, Array.from(selected), maxDepth)
+      const res = await runAudit(sessionId, Array.from(selected), maxDepth, 0.15, outcomeColumn || undefined)
       onAuditComplete(res.data)
     } catch (e: any) {
       setError(e.response?.data?.detail || 'Audit failed')
@@ -254,7 +255,7 @@ export default function UploadScreen({ onUploadComplete, onAuditComplete, upload
               <p className="text-slate-400 text-sm">{rowCount.toLocaleString()} rows · {columns.length} columns</p>
             </div>
             <button
-              onClick={() => { setColumns([]); setSelected(new Set()); setSessionId(null) }}
+              onClick={() => { setColumns([]); setSelected(new Set()); setSessionId(null); setOutcomeColumn('') }}
               className="text-xs text-slate-500 hover:text-slate-300 transition-colors"
             >
               ← Use different file
@@ -305,6 +306,28 @@ export default function UploadScreen({ onUploadComplete, onAuditComplete, upload
             <span className="text-xs text-slate-500 ml-1">
               {maxDepth === 2 ? 'Shallow - fast' : maxDepth <= 4 ? 'Recommended' : 'Deep - slower'}
             </span>
+          </div>
+
+          <div className="mb-6">
+            <label className="text-sm text-slate-400 block mb-1">
+              Outcome column <span className="text-slate-600 text-xs">(optional — enables fairness metrics)</span>
+            </label>
+            <p className="text-slate-600 text-xs mb-2">
+              The column your model predicts (e.g. income, loan_approved, hired). Required for SPD, DI, EOD, AOD.
+            </p>
+            <select
+              value={outcomeColumn}
+              onChange={e => setOutcomeColumn(e.target.value)}
+              className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-sm text-white
+                focus:outline-none focus:border-slate-400 cursor-pointer"
+            >
+              <option value="">— Skip fairness metrics —</option>
+              {columns
+                .filter(col => !selected.has(col.name))
+                .map(col => (
+                  <option key={col.name} value={col.name}>{col.name} ({col.dtype})</option>
+                ))}
+            </select>
           </div>
 
           <button

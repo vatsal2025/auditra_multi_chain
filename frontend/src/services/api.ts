@@ -106,9 +106,10 @@ export const runAudit = (
   session_id: string,
   protected_attributes: string[],
   max_depth = 4,
-  threshold = 0.15
+  threshold = 0.15,
+  outcome_column?: string,
 ) =>
-  api.post<AuditResponse>('/audit', { session_id, protected_attributes, max_depth, threshold })
+  api.post<AuditResponse>('/audit', { session_id, protected_attributes, max_depth, threshold, outcome_column: outcome_column || null })
 
 export const applyFix = (session_id: string, chain_id: string) =>
   api.post<FixResponse>('/fix', { session_id, chain_id })
