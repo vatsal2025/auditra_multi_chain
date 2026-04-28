@@ -130,11 +130,14 @@ async def run_audit(req: AuditRequest):
     session_store.set(req.session_id, "audit", result)
     session_store.set(req.session_id, "G", G)
     session_store.set(req.session_id, "strengths", strengths)
-    # Store audit config for post-fix re-measurement
+    # Store audit config for post-fix re-measurement — resolve positive_outcome now
+    resolved_positive = None
+    if req.outcome_column and req.outcome_column in df.columns:
+        resolved_positive = req.positive_outcome or _infer_positive_outcome(df, req.outcome_column)
     session_store.set(req.session_id, "audit_config", {
         "outcome_column": req.outcome_column,
         "privileged_groups": req.privileged_groups,
-        "positive_outcome": req.positive_outcome,
+        "positive_outcome": resolved_positive,
         "protected_attributes": req.protected_attributes,
     })
 

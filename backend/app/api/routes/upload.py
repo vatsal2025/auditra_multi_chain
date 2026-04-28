@@ -22,7 +22,9 @@ async def upload_dataset(file: UploadFile = File(...)):
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Could not parse CSV: {e}")
 
-    if df.empty or len(df.columns) < 2:
+    if df.empty:
+        raise HTTPException(status_code=400, detail="Dataset has no rows. Upload a CSV with data.")
+    if len(df.columns) < 2:
         raise HTTPException(status_code=400, detail="Dataset must have at least 2 columns.")
 
     session_id = str(uuid.uuid4())

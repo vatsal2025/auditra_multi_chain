@@ -67,6 +67,8 @@ def _compute_metrics_comparison(
         # For accuracy: higher = better
         if name == "model_accuracy_overall":
             improved = after_val >= before_val - 0.005
+        elif name == "disparate_impact_ratio":
+            improved = abs(after_val - 1.0) <= abs(before_val - 1.0)
         else:
             improved = abs(after_val) <= abs(before_val)
         deltas.append(MetricDelta(
