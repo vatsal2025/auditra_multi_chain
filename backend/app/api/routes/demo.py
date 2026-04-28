@@ -382,10 +382,20 @@ _ADULT_COL_META = {
 @router.post("/demo/adult")
 async def load_adult_demo():
     """Instant fixture — hardcoded, no ML computation. Session stored so chat/fix work."""
+    import asyncio
+    from app.services.data_loader import load_adult
+
     session_id = str(uuid.uuid4())
     audit_result = _build_adult_fixture(session_id)
 
-    # Store session so /chat and /fix endpoints can find it
+    # Load df in thread pool — non-blocking, CSV already on disk so ~0.5s
+    loop = asyncio.get_event_loop()
+    df = await loop.run_in_executor(None, load_adult)
+    if df is not None and len(df) > 8000:
+        df = df.sample(n=8000, random_state=42).reset_index(drop=True)
+
+    col_types = detect_column_types(df) if df is not None else {}
+
     session_store.set(session_id, "audit", audit_result)
     session_store.set(session_id, "chat_history", [])
     session_store.set(session_id, "filename", "adult-income.csv")
@@ -396,6 +406,9 @@ async def load_adult_demo():
         "privileged_groups": {"sex": "Male", "race": "White"},
         "positive_outcome": ">50K",
     })
+    if df is not None:
+        session_store.set(session_id, "df", df)
+        session_store.set(session_id, "col_types", col_types)
 
     columns = [
         ColumnInfo(name=col, dtype=meta[0], unique_count=meta[1], null_pct=0.0)
